@@ -1,0 +1,30 @@
+{
+  "name": "image-upscaler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server.ts",
+    "serve": "tsx server.ts",
+    "build": "tsc",
+    "start": "tsx server.ts",
+    "test": "node tests/check-dom.js && node tests/css-hidden-test.mjs && node tests/hist-test.mjs && node tests/dom-test.mjs",
+    "test:ids": "node tests/check-dom.js",
+    "test:css": "node tests/css-hidden-test.mjs",
+    "test:histogram": "node tests/hist-test.mjs",
+    "test:ui": "node tests/dom-test.mjs",
+    "test:browser": "node tests/browser-test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "sharp": "^0.34.0",
+    "tsx": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.0.0"
+  }
+}

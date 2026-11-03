@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Upscale Studio — Interpolation & Enhancement Lab</title>
+<link rel="stylesheet" href="/style.css" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div class="brand-text">
+        <h1>Upscale Studio</h1>
+        <p>Interpolation &amp; Enhancement Lab · 2× / 4×</p>
+      </div>
+    </div>
+
+    <div class="topstats" aria-live="polite">
+      <div class="stat"><span>Queue</span><b id="statQueue">0</b></div>
+      <div class="stat"><span>Outputs</span><b id="statOutputs">0</b></div>
+      <div class="stat"><span>Best</span><b id="statBest">—</b></div>
+      <div class="stat"><span>Latency</span><b id="statLatency">—</b></div>
+    </div>
+
+    <div class="topactions">
+      <button class="ghost-btn" id="shortcutsBtn" type="button" title="Keyboard shortcuts (?)">⌘ Shortcuts</button>
+      <button class="ghost-btn" id="reportBtn" type="button" title="Export experiment report (R)" disabled>Export report</button>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ───────────────── Source ───────────────── -->
+    <section class="panel col-source">
+      <div class="panel-head">
+        <h2>Source image</h2>
+        <span class="pill" id="sourceBadge">No image</span>
+      </div>
+
+      <div class="examples">
+        <div class="examples-head">
+          <span>Sample gallery — one click to load</span>
+          <button class="link-btn" id="refreshExamples" type="button">Refresh</button>
+        </div>
+        <div class="example-strip" id="exampleStrip">
+          <div class="example-skeleton"></div>
+          <div class="example-skeleton"></div>
+          <div class="example-skeleton"></div>
+        </div>
+      </div>
+
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload an image">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M12 16V4m0 0L7 9m5-5 5 5" />
+          <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+        </svg>
+        <strong>Drop an image</strong>
+        <span>or click to browse · PNG · JPEG · WebP · AVIF · TIFF</span>
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/avif,image/tiff,image/tif" hidden />
+      </div>
+
+      <div class="analysis" id="analysis" hidden>
+        <div class="analysis-grid" id="metaGrid"></div>
+
+        <div class="histo-block">
+          <div class="histo-head">
+            <span>Luminance histogram</span>
+            <span class="histo-legend"><i class="dot dot-src"></i>source<i class="dot dot-out"></i>result</span>
+          </div>
+          <canvas id="histogram" width="520" height="110" aria-label="Histogram"></canvas>
+          <div class="tonal-row">
+            <div><span>Shadows</span><b id="tShadow">—</b></div>
+            <div><span>Midtones</span><b id="tMid">—</b></div>
+            <div><span>Highlights</span><b id="tHigh">—</b></div>
+            <div><span>Mean</span><b id="tMean">—</b></div>
+          </div>
+        </div>
+
+        <button class="text-btn danger" id="clearBtn" type="button">Remove image</button>
+      </div>
+    </section>
+
+    <!-- ───────────────── Controls ───────────────── -->
+    <section class="panel col-controls">
+      <div class="panel-head">
+        <h2>Pipeline</h2>
+        <span class="pill live" id="pipelineBadge">Idle</span>
+      </div>
+
+      <div class="field">
+        <div class="field-top"><label>Scale factor</label><output id="factorOut">2×</output></div>
+        <div class="segmented" id="factorGroup">
+          <button type="button" data-factor="2" class="seg is-active">2×</button>
+          <button type="button" data-factor="4" class="seg">4×</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-top"><label>Interpolation kernels</label><output id="methodOut">1 selected</output></div>
+        <div class="method-list" id="methodGroup">
+          <label class="method"><input type="checkbox" value="nearest" /><span class="tick"></span><span class="m-name">Nearest</span><span class="m-note">blocky</span></label>
+          <label class="method"><input type="checkbox" value="bilinear" /><span class="tick"></span><span class="m-name">Bilinear</span><span class="m-note">smooth</span></label>
+          <label class="method is-on"><input type="checkbox" value="bicubic" checked /><span class="tick"></span><span class="m-name">Bicubic</span><span class="m-note">balanced</span></label>
+          <label class="method"><input type="checkbox" value="lanczos" /><span class="tick"></span><span class="m-name">Lanczos</span><span class="m-note">sharpest</span></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-top">
+          <label for="sharpenRange">Unsharp mask</label>
+          <output id="sharpenOut">0.0</output>
+        </div>
+        <input type="range" id="sharpenRange" min="0" max="20" step="0.5" value="0" />
+        <div class="range-scale"><span>off</span><span>subtle</span><span>punchy</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-top"><label for="formatSel">Encoder</label></div>
+        <select id="formatSel">
+          <option value="png">PNG — lossless</option>
+          <option value="jpeg">JPEG — compact</option>
+          <option value="webp">WebP — modern</option>
+        </select>
+      </div>
+
+      <button class="primary" id="runBtn" type="button" disabled>
+        <span>Run upscale</span>
+        <small id="runHint">Load an image first</small>
+      </button>
+
+      <div class="progress" id="progress" hidden>
+        <div class="progress-bar"><i id="progressFill"></i></div>
+        <div class="progress-meta"><span id="progressLabel">Starting</span><b id="progressPct">0%</b></div>
+      </div>
+
+      <ol class="stages" id="stages"></ol>
+    </section>
+
+    <!-- ───────────────── Compare ───────────────── -->
+    <section class="panel col-compare">
+      <div class="panel-head">
+        <h2>Compare studio</h2>
+        <div class="compare-tools">
+          <div class="toggle" id="sharpenToggle" role="group" aria-label="Sharpening preview">
+            <button type="button" data-mode="sharp" class="is-active">Sharpened</button>
+            <button type="button" data-mode="plain">No sharpening</button>
+          </div>
+          <button class="ghost-btn" id="copyBtn" type="button" disabled title="Copy result (C)">Copy</button>
+        </div>
+      </div>
+
+      <div class="scrub" id="scrub" aria-label="Before and after comparison">
+        <div class="stage" id="stage">
+          <img id="imgBefore" alt="Source image" draggable="false" />
+          <div class="after-clip" id="afterClip"><img id="imgAfter" alt="Upscaled result" draggable="false" /></div>
+        </div>
+        <div class="divider" id="divider" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Reveal position">
+          <span class="divider-grip"></span>
+        </div>
+        <span class="scrub-tag left">Source</span>
+        <span class="scrub-tag right" id="scrubTagRight">Result</span>
+        <div class="scrub-empty" id="scrubEmpty">Run an upscale to unlock the comparison</div>
+      </div>
+
+      <div class="scrub-foot">
+        <div class="chips" id="outputChips"></div>
+        <div class="zoom">
+          <label for="zoomRange">Zoom</label>
+          <input type="range" id="zoomRange" min="100" max="320" step="10" value="100" disabled />
+          <output id="zoomOut">100%</output>
+          <button class="ghost-btn sm" id="resetView" type="button">Fit</button>
+        </div>
+      </div>
+
+      <div class="compare-meta">
+        <div><span>Method</span><b id="cmpMethod">—</b></div>
+        <div><span>Resolution</span><b id="cmpRes">—</b></div>
+        <div><span>File size</span><b id="cmpSize">—</b></div>
+        <div><span>Δ vs source</span><b id="cmpDelta">—</b></div>
+      </div>
+    </section>
+
+    <!-- ───────────────── Results ───────────────── -->
+    <section class="panel col-results">
+      <div class="panel-head">
+        <h2>Method comparison</h2>
+        <div class="head-actions">
+          <button class="ghost-btn sm" id="downloadAll" type="button" disabled>Download all</button>
+          <button class="text-btn" id="clearResults" type="button">Clear</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>PSNR 2×</th>
+              <th>PSNR 4×</th>
+              <th>SSIM 2×</th>
+              <th>SSIM 4×</th>
+              <th>MSE 2×</th>
+              <th>Speed</th>
+              <th>Size</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody">
+            <tr class="empty"><td colspan="9">No results yet — run the pipeline to compare kernels.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="verdict" id="verdict" hidden>
+        <div class="gauge">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle cx="60" cy="60" r="50" class="gauge-track" />
+            <circle cx="60" cy="60" r="50" class="gauge-fill" id="gaugeFill" />
+          </svg>
+          <div class="gauge-label"><b id="gaugeScore">—</b><span>quality</span></div>
+        </div>
+        <div class="verdict-text">
+          <h3 id="verdictTitle">—</h3>
+          <p id="verdictBody">—</p>
+          <div class="verdict-meta" id="verdictMeta"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────── Telemetry ───────────────── -->
+    <section class="panel col-telemetry">
+      <div class="panel-head">
+        <h2>Telemetry</h2>
+        <span class="pill" id="telemetryBadge">Standby</span>
+      </div>
+      <div class="telemetry" id="telemetry"></div>
+      <div class="log">
+        <div class="log-head"><span>Activity stream</span><button class="text-btn" id="clearLog" type="button">clear</button></div>
+        <ul id="logList"></ul>
+      </div>
+    </section>
+
+    <!-- ───────────────── Batch ───────────────── -->
+    <section class="panel col-batch">
+      <div class="panel-head">
+        <h2>Batch queue</h2>
+        <div class="head-actions">
+          <button class="ghost-btn sm" id="addBatch" type="button">+ Add job</button>
+          <button class="ghost-btn sm" id="runBatch" type="button" disabled>Run queue</button>
+        </div>
+      </div>
+      <p class="hint">Queue up multiples of the current source to preview throughput. Each job replays the active pipeline settings.</p>
+      <ul class="batch" id="batchList">
+        <li class="batch-empty">Queue is empty</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<div class="overlay" id="shortcutOverlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle">
+    <div class="sheet-head">
+      <h3 id="shortcutsTitle">Keyboard shortcuts</h3>
+      <button class="text-btn" id="closeShortcuts" type="button">Close</button>
+    </div>
+    <dl class="keys">
+      <div><dt>O</dt><dd>Open image</dd></div>
+      <div><dt>Enter</dt><dd>Run upscale</dd></div>
+      <div><dt>1 – 4</dt><dd>Toggle kernels</dd></div>
+      <div><dt>2 / 4</dt><dd>Scale factor</dd></div>
+      <div><dt>S</dt><dd>Toggle sharpening preview</dd></div>
+      <div><dt>← / →</dt><dd>Move reveal divider</dd></div>
+      <div><dt>+ / −</dt><dd>Zoom compare</dd></div>
+      <div><dt>C</dt><dd>Copy result image</dd></div>
+      <div><dt>R</dt><dd>Export report</dd></div>
+      <div><dt>Esc</dt><dd>Close dialogs</dd></div>
+    </dl>
+  </div>
+</div>
+
+<div class="toast-stack" id="toasts" aria-live="polite"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
